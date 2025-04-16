@@ -29,7 +29,7 @@
             <!-- Views will be dynamically shown/hidden here -->
 
             <!-- Join View -->
-            <div id="join-view" class="flex flex-col md:flex-row gap-4 p-4 h-full">
+            <div id="join-view" class="flex flex-col md:flex-row gap-4 p-4">
                 <!-- Left Panel - Lobby Info -->
                 <div class="lobby-panel bg-gray-100 p-6 rounded-lg md:w-1/2 overflow-y-auto">
                   <h2 class="text-2xl font-bold mb-6">Lobby Status</h2>
@@ -108,10 +108,10 @@
                         <h3 class="font-semibold mb-1 border-b pb-1 text-sm">Game Info</h3>
                         <div class="grid grid-cols-2 gap-1 text-sm">
                             <div>Players:</div>
-                            <div><span id="current-players" class="font-medium">?</span>/<span id="max-players" class="font-medium">?</span></div>
+                            <div><span id="lobby-current-players" class="font-medium">?</span>/<span id="lobby-max-players" class="font-medium">?</span></div>
                             
                             <div>Host:</div>
-                            <div><span id="host-name" class="font-medium text-indigo-700">N/A</span></div>
+                            <div><span id="lobby-host-name" class="font-medium text-indigo-700">N/A</span></div>
                             
                             <div>Mode:</div>
                             <div><span id="game-mode" class="font-medium">?</span></div>
@@ -127,7 +127,7 @@
                     <!-- Players -->
                     <div class="bg-blue-50 p-3 rounded-lg border border-blue-200">
                         <h3 class="font-semibold mb-1 border-b pb-1 text-sm">Players</h3>
-                        <div id="player-list" class="text-sm space-y-1"></div>
+                        <div id="lobby-player-list-container" class="text-sm space-y-1"></div>
                     </div>
                     
                     <!-- Leaderboard -->
@@ -289,6 +289,7 @@
     </div>
 
     <script src="/socket.io/socket.io.js"></script>
+    <script src="avatar.js"></script>
     <script src="client.js"></script>
 </body>
 </html>

@@ -51,6 +51,52 @@ function setupSocketEvents(socket) {
         }
     });
 
+    socket.on('leaveLobby', () => {
+        console.log(`Received leaveLobby request from ${socket.id}`);
+        // Use the existing removePlayer function which handles state update and host transfer
+        const { playerExisted, gameShouldEnd } = gameStateManager.removePlayer(socket.id);
+
+        if (playerExisted) {
+            console.log(`Player ${socket.id} successfully processed for leaving.`);
+            // Leave the socket room associated with the game/lobby
+            // Note: Finding the correct room ID might need adjustment if you have multiple lobbies
+            const gameState = gameStateManager.getGameState(); // Get state *after* removal attempt
+            const gameRoomId = gameState?.hostId || 'default_game_room'; // Use *new* host ID or default
+            // Check if the socket is actually in the room before trying to leave
+            if (socket.rooms.has(gameRoomId)) {
+                 socket.leave(gameRoomId);
+                 console.log(`Socket ${socket.id} left room ${gameRoomId}`);
+            } else {
+                // It might have already left if host changed and broadcast happened before leave msg processed?
+                // Or if using a different room ID logic.
+                console.warn(`Socket ${socket.id} was not in room ${gameRoomId} to leave.`);
+            }
+
+
+            if (gameShouldEnd) {
+                 // removePlayer determined the game should end (e.g., last player left mid-game)
+                 gameController.endGame("Not enough players left.");
+            } else {
+                 // Broadcast the updated state to remaining players (if any)
+                 gameController.broadcastGameState();
+            }
+            // Send an updateState back to the *leaving* player too, so their UI resets correctly
+            // They will receive the state where they are no longer in `players` list.
+             const stateForLeavingPlayer = gameStateManager.getSanitizedGameState(socket.id, llmService.isLLMAvailable());
+             if (stateForLeavingPlayer) {
+                socket.emit('updateState', stateForLeavingPlayer);
+             }
+        } else {
+            console.log(`Player ${socket.id} tried to leave, but was not found in the game state.`);
+            // Optionally send an error or just update their state which should show them as not joined
+            const stateForLeavingPlayer = gameStateManager.getSanitizedGameState(socket.id, llmService.isLLMAvailable());
+             if (stateForLeavingPlayer) {
+                socket.emit('updateState', stateForLeavingPlayer);
+             }
+        }
+    });
+
+
     socket.on('startGame', () => {
         gameController.startGame(socket.id);
     });

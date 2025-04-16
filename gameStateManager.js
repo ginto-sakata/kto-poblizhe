@@ -1,3 +1,4 @@
+//gameStateManager.js
 const dataManager = require('./dataManager');
 
 let gameState = null; // Will be initialized by server.js
