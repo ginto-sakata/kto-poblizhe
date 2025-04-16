@@ -94,19 +94,40 @@ function setupSocketEvents(socket) {
             }
 
 
+            const updatedGameState = gameStateManager.getGameState(); // Get state *after* removal
+            const isLobbyNowEmpty = !updatedGameState.hostId && Object.keys(updatedGameState.players).length === 0;
+
             if (gameShouldEnd) {
-                 // removePlayer determined the game should end (e.g., last player left mid-game)
+                 // This case handles ending mid-game, which is less likely here, but keep it.
+                 // Should probably also broadcast globally if it empties the lobby.
                  gameController.endGame("Not enough players left.");
-            } else {
-                 // Broadcast the updated state to remaining players (if any)
-                 gameController.broadcastGameState();
+                 // Add global broadcast here too if endGame doesn't handle it
+                 console.log(`Broadcasting final empty state to ALL sockets after game ended.`);
+                 io.sockets.sockets.forEach(connectedSocket => {
+                     const finalState = gameStateManager.getSanitizedGameState(connectedSocket.id, llmService.isLLMAvailable());
+                     if (finalState) connectedSocket.emit('updateState', finalState);
+                 });
+            } else if (isLobbyNowEmpty) {
+                // Last player left the lobby, game state was reset. Broadcast empty state to everyone.
+                console.log(`Broadcasting reset empty state to ALL sockets.`);
+                io.sockets.sockets.forEach(connectedSocket => {
+                    const finalState = gameStateManager.getSanitizedGameState(connectedSocket.id, llmService.isLLMAvailable());
+                    if (finalState) connectedSocket.emit('updateState', finalState);
+                });
+                // The leaving player is included in the io.sockets loop, so they get the update too.
             }
-            // Send an updateState back to the *leaving* player too, so their UI resets correctly
-            // They will receive the state where they are no longer in `players` list.
-             const stateForLeavingPlayer = gameStateManager.getSanitizedGameState(socket.id, llmService.isLLMAvailable());
-             if (stateForLeavingPlayer) {
-                socket.emit('updateState', stateForLeavingPlayer);
+             else {
+                 // Lobby still exists, broadcast normally to remaining players.
+                 console.log(`Broadcasting updated lobby state after player ${socket.id} left.`);
+                 gameController.broadcastGameState(); // Assumes this targets correctly
+                 // Also send state specifically to the leaving player so their UI resets.
+                 const stateForLeavingPlayer = gameStateManager.getSanitizedGameState(socket.id, llmService.isLLMAvailable());
+                 if (stateForLeavingPlayer) {
+                    socket.emit('updateState', stateForLeavingPlayer);
+                 }
              }
+
+
         } else {
             console.log(`Player ${socket.id} tried to leave, but was not found in the game state.`);
             // Optionally send an error or just update their state which should show them as not joined
@@ -143,10 +164,30 @@ function setupSocketEvents(socket) {
         const { playerExisted, gameShouldEnd } = gameStateManager.removePlayer(socket.id);
 
         if (playerExisted) {
+            const updatedGameState = gameStateManager.getGameState(); // Get state *after* removal
+            const isLobbyNowEmpty = !updatedGameState.hostId && Object.keys(updatedGameState.players).length === 0;
+    
             if (gameShouldEnd) {
-                gameController.endGame("Not enough players left.");
-            } else {
-                gameController.broadcastGameState(); // Update remaining players
+                 // Game ended mid-play due to disconnect
+                 gameController.endGame("Not enough players left after disconnect.");
+                 // Broadcast the final state globally
+                 console.log(`Broadcasting final empty state to ALL sockets after disconnect ended game.`);
+                 io.sockets.sockets.forEach(connectedSocket => {
+                    const finalState = gameStateManager.getSanitizedGameState(connectedSocket.id, llmService.isLLMAvailable());
+                    if (finalState) connectedSocket.emit('updateState', finalState);
+                 });
+            } else if (isLobbyNowEmpty) {
+                // Last player disconnected from lobby, game state was reset. Broadcast empty state to everyone.
+                console.log(`Broadcasting reset empty state to ALL sockets after last player disconnected.`);
+                 io.sockets.sockets.forEach(connectedSocket => {
+                    const finalState = gameStateManager.getSanitizedGameState(connectedSocket.id, llmService.isLLMAvailable());
+                    if (finalState) connectedSocket.emit('updateState', finalState);
+                 });
+            }
+            else {
+                // Lobby/game still exists, broadcast normally to remaining players.
+                console.log(`Broadcasting updated game state after player ${socket.id} disconnected.`);
+                gameController.broadcastGameState(); // Assumes this targets correctly
             }
         }
          // Leave the game room explicitly? (Might happen automatically)

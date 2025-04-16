@@ -542,16 +542,26 @@ socket.on('updateState', (newState) => {
           if(lobbyView) lobbyView.style.display = 'none';
   }
 
-  // 4. Update Join Button state and Name Input
-   if (joinButton && playerIsInGame) {
-       joinButton.textContent = 'Leave Lobby';
-       joinButton.disabled = false;
-       if(nameInput) nameInput.disabled = true; // Disable name input
-   } else if (joinButton) {
-      joinButton.textContent = newState.players?.length === 0 ? 'Create Lobby' : 'Join Game';
-      joinButton.disabled = false;
-      if(nameInput) nameInput.disabled = false; // Enable name input
-   }
+  // 4. Update Join Button state, style, text, and Name Input
+  if (joinButton) {
+    if (playerIsInGame) {
+        // --- Player IS IN LOBBY ---
+        joinButton.textContent = 'Leave Lobby 🚪'; // Add emoji
+        joinButton.disabled = false;
+        // Remove blue styles, add red styles
+        joinButton.classList.remove('bg-gradient-to-r', 'from-blue-600', 'to-blue-500', 'hover:from-blue-700', 'hover:to-blue-600');
+        joinButton.classList.add('bg-red-600', 'hover:bg-red-700');
+        if (nameInput) nameInput.disabled = true;
+    } else {
+        // --- Player IS NOT IN LOBBY ---
+        joinButton.textContent = newState.players?.length === 0 ? 'Create Lobby' : 'Join Game'; // No emoji
+        joinButton.disabled = false;
+        // Remove red styles, add blue styles back
+        joinButton.classList.remove('bg-red-600', 'hover:bg-red-700');
+        joinButton.classList.add('bg-gradient-to-r', 'from-blue-600', 'to-blue-500', 'hover:from-blue-700', 'hover:to-blue-600');
+        if (nameInput) nameInput.disabled = false;
+    }
+  }
 });
 
 
@@ -570,7 +580,7 @@ if (joinButton) {
           socket.emit('leaveLobby');
           // Optionally disable button temporarily while leaving
           joinButton.disabled = true;
-          joinButton.textContent = 'Leaving...';
+          joinButton.textContent = 'Leaving... 🚪'; // Updated temporary text
           // UI update will happen via updateState from server
       } else {
           // --- Player IS NOT in the game, so this button acts as "Join/Create" ---
