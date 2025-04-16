@@ -1,0 +1,30 @@
+{
+  "name": "game",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "watch": "tailwindcss -i ./src/input.css -o ./public/style.css --watch",
+    "build": "tailwindcss -i ./src/input.css -o ./public/style.css --minify",
+    "start": "node server.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "@google-cloud/vertexai": "^1.9.3",
+    "@google/generative-ai": "^0.24.0",
+    "body-parser": "^2.2.0",
+    "csv-parser": "^3.2.0",
+    "debug": "^4.4.0",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "fs": "^0.0.1-security",
+    "morgan": "^1.10.0",
+    "socket.io": "^4.8.1"
+  },
+  "devDependencies": {
+    "tailwindcss": "^3.4.17"
+  }
+}

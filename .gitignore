@@ -1,0 +1,6 @@
+node_modules/
+.env
+data/stats.json
+.vscode
+cline_docs/currentTask.md
+cline_docs/projectRoadmap.md
