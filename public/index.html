@@ -1,3 +1,5 @@
+<!-- public/index.html-->
+ 
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -30,11 +32,51 @@
 
             <!-- Join View -->
             <div id="join-view" class="flex flex-col md:flex-row gap-4 p-4">
-                <!-- Left Panel Container -->
-                <div class="lobby-panel bg-gray-100 p-6 rounded-lg md:w-1/2 overflow-y-auto">
 
-                    <!-- Original Lobby Status Content (Now Wrapped) -->
-                    <div id="lobby-status-wrapper"> <!-- ADDED WRAPPER ID -->
+                <!-- Left Panel - Player Input -->
+                <div class="input-panel bg-white/80 backdrop-blur-sm p-6 rounded-xl shadow-md md:w-1/2 border border-gray-200 flex flex-col">
+                    <div class="flex-1 flex flex-col items-center justify-center">
+                        <div class="relative mb-6 group">
+                        <div id="avatar-container" class="w-40 h-40 rounded-full bg-gradient-to-br from-gray-200 to-gray-300 shadow-inner overflow-hidden relative">
+                        </div>
+                        <button
+                            id="randomize-avatar"
+                            class="mt-3 mx-auto flex items-center gap-1 text-sm text-gray-600 hover:text-blue-600 transition-colors"
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                            </svg>
+                            Randomize
+                        </button>
+                        </div>
+
+                        <div class="w-full max-w-xs mb-6">
+                        <label for="player-name-input" class="block text-sm font-medium text-gray-700 mb-1">Your Name</label>
+                        <input
+                            type="text"
+                            id="player-name-input"
+                            placeholder="Enter your display name"
+                            class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
+                            maxlength="20"
+                        >
+                        </div>
+                    </div>
+
+                    <button
+                        id="join-button"
+                        class="w-full py-3 px-6 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 text-white font-medium rounded-lg shadow-md hover:shadow-lg transition-all duration-200"
+                    >
+                        Join Game
+                    </button>
+
+                    <p id="join-error" class="mt-3 text-sm text-red-500 text-center hidden"></p>
+                    </div> <!-- End Left Panel (Player Input) -->
+
+                <!-- Right Panel Container - Holds Lobby Status OR Opponent Info -->
+                <div id="right-join-panel" class="bg-white/80 backdrop-blur-sm p-6 rounded-xl shadow-md md:w-1/2 border border-gray-200 flex flex-col">
+
+                    <!-- Lobby Status Content (Moved here from gray panel) -->
+                    <div id="lobby-status-wrapper" style="display: block;">
                         <h2 class="text-xl font-bold mb-6">Lobby Status</h2>
                         <div class="grid grid-cols-2 gap-4 mb-6">
                             <div>
@@ -50,72 +92,26 @@
                         <ul id="player-list" class="space-y-2">
                             <li class="text-gray-500 italic">(Empty)</li>
                         </ul>
-                    </div> <!-- END WRAPPER -->
+                    </div> <!-- END LOBBY STATUS WRAPPER -->
 
-                    <!-- Opponent Info Panel (Initially Hidden) -->
-                    <div id="opponent-info-panel" class="flex flex-col items-center" style="display: none;"> <!-- ADDED THIS PANEL -->
+                    <!-- Opponent Info Panel (Moved here, initially hidden) -->
+                    <div id="opponent-info-panel" class="flex flex-col items-center" style="display: none;">
                         <div id="opponent-info-avatar" class="w-32 h-32 mb-4 rounded-full bg-gray-300 flex items-center justify-center text-gray-500">
-                            <!-- Large opponent avatar will be inserted here -->
                             ?
                         </div>
                         <h3 id="opponent-info-name" class="text-xl font-semibold mb-2">Opponent Name</h3>
                         <p class="text-sm text-gray-600">Played games: <span id="opponent-info-games">?</span></p>
                         <p class="text-sm text-gray-600">Total Score: <span id="opponent-info-score">?</span></p>
-                        <!-- Add wins or winrate if desired -->
                         <p class="text-sm text-gray-600">Wins: <span id="opponent-info-wins">?</span></p>
                     </div><!-- END OPPONENT PANEL -->
 
-                </div><!-- End Left Panel Container -->
-              
-                <!-- Right Panel - Player Input (original IDs preserved!) -->
-                <div class="input-panel bg-white/80 backdrop-blur-sm p-6 rounded-xl shadow-md md:w-1/2 border border-gray-200 flex flex-col">
-                    <div class="flex-1 flex flex-col items-center justify-center">
-                      <!-- AVATAR CONTAINER (Original ID preserved) -->
-                      <div class="relative mb-6 group">
-                        <div id="avatar-container" class="w-40 h-40 rounded-full bg-gradient-to-br from-gray-200 to-gray-300 shadow-inner overflow-hidden relative">
-                          <!-- Dynamic avatar parts injected by client.js -->
-                        </div>
-                        <!-- RANDOMIZE BUTTON (Original ID preserved) -->
-                        <button 
-                          id="randomize-avatar" 
-                          class="mt-3 mx-auto flex items-center gap-1 text-sm text-gray-600 hover:text-blue-600 transition-colors"
-                        >
-                          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                          </svg>
-                          Randomize
-                        </button>
-                      </div>
-                  
-                      <!-- NAME INPUT (Original ID preserved) -->
-                      <div class="w-full max-w-xs mb-6">
-                        <label for="player-name-input" class="block text-sm font-medium text-gray-700 mb-1">Your Name</label>
-                        <input
-                          type="text"
-                          id="player-name-input"
-                          placeholder="Enter your display name"
-                          class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
-                          maxlength="20"
-                        >
-                      </div>
-                    </div>
-                    
-                    <!-- JOIN BUTTON (Original ID preserved) -->
-                    <button 
-                      id="join-button" 
-                      class="w-full py-3 px-6 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 text-white font-medium rounded-lg shadow-md hover:shadow-lg transition-all duration-200"
-                    >
-                      Join Game
-                    </button>
-                  
-                    <!-- ERROR MESSAGE (Original ID preserved) -->
-                    <p id="join-error" class="mt-3 text-sm text-red-500 text-center hidden"></p>
-                  </div>
+                </div><!-- End Right Panel Container -->
+
+            </div> <!-- End Join View -->
 
 
 
 
-              </div>
 
             <!-- Lobby View (Waiting Room) -->
             <div id="lobby-view" class="view" style="display: none;">
@@ -305,6 +301,7 @@
 
     <script src="/socket.io/socket.io.js"></script>
     <script src="avatar.js"></script>
+    <script src="uiUpdater.js"></script>
     <script src="client.js"></script>
 </body>
 </html>

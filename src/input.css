@@ -1,8 +1,10 @@
+/* src/input.css */
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* Optional: Add any custom base styles or components here */
+
 body {
   @apply bg-gradient-to-br from-blue-100 via-white to-yellow-100; /* Subtle gradient background */
 }

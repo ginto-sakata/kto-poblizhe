@@ -1,3 +1,5 @@
+// public/avatar.js
+
 const Avataaars = {
     defaultOptions: {
       style:"circle",
