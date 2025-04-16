@@ -36,19 +36,40 @@ function setupSocketEvents(socket) {
         if (!name || typeof name !== 'string' || name.trim().length === 0 || name.length > 20) { socket.emit('joinError', 'Invalid name provided.'); return; }
         if (!avatarOptions || typeof avatarOptions !== 'object') { socket.emit('joinError', 'Invalid avatar data provided.'); return; }
 
+        const initialPlayerCount = Object.keys(gameStateManager.getGameState()?.players || {}).length;
         const result = gameStateManager.addPlayer(socket.id, name, avatarOptions);
 
         if (result.success) {
-             // Join a room specific to this game instance (using hostId as a simple unique identifier for now)
-             // TODO: Implement a better Game ID system if supporting multiple concurrent games
-             const gameState = gameStateManager.getGameState();
-             const gameRoomId = gameState.hostId || 'default_game_room'; // Use host ID or a default
-             socket.join(gameRoomId);
-             console.log(`Socket ${socket.id} joined room ${gameRoomId}`);
-            gameController.broadcastGameState();
-        } else {
-            socket.emit('joinError', result.error);
-        }
+            const gameState = gameStateManager.getGameState();
+            const gameRoomId = gameState.hostId || 'default_game_room'; // Room is usually based on host
+            socket.join(gameRoomId);
+            console.log(`Socket ${socket.id} (${name}) joined room ${gameRoomId}`);
+
+            // --- MODIFIED BROADCAST LOGIC ---
+            // Check if the lobby was just created by this join action
+            const wasLobbyJustCreated = initialPlayerCount === 0 && Object.keys(gameState.players).length === 1;
+
+            if (wasLobbyJustCreated) {
+                console.log(`Broadcasting initial lobby creation to ALL sockets.`);
+                // Send sanitized state individually to ALL connected sockets
+                io.sockets.sockets.forEach(connectedSocket => {
+                    // Get the state sanitized specifically for the recipient socket
+                    const stateToSend = gameStateManager.getSanitizedGameState(connectedSocket.id, llmService.isLLMAvailable());
+                    if (stateToSend) {
+                        connectedSocket.emit('updateState', stateToSend);
+                    }
+                });
+
+            } else {
+                // Existing lobby, broadcast normally (to the room/relevant players)
+                console.log(`Broadcasting lobby update within room ${gameRoomId}.`);
+                gameController.broadcastGameState(); // Assumes this targets the correct players already
+            }
+            // --- END MODIFIED BROADCAST LOGIC ---
+
+       } else {
+           socket.emit('joinError', result.error || 'Failed to join.'); // Send specific error
+       }
     });
 
     socket.on('leaveLobby', () => {

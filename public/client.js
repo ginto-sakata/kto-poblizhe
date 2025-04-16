@@ -16,6 +16,16 @@ const joinCurrentPlayers = document.getElementById('current-players');
 const joinMaxPlayers = document.getElementById('max-players');
 const joinHostName = document.getElementById('host-name');
 const joinPlayerList = document.getElementById('player-list');
+      
+// Opponent Info Panel Elements (in Join View)
+const lobbyStatusWrapper = document.getElementById('lobby-status-wrapper');
+const opponentInfoPanel = document.getElementById('opponent-info-panel');
+const opponentInfoAvatar = document.getElementById('opponent-info-avatar');
+const opponentInfoName = document.getElementById('opponent-info-name');
+const opponentInfoGames = document.getElementById('opponent-info-games');
+const opponentInfoScore = document.getElementById('opponent-info-score');
+const opponentInfoWins = document.getElementById('opponent-info-wins'); // Added for wins
+
 
 // Lobby View Elements (IDs Renamed for Clarity/Consistency)
 const lobbyView = document.getElementById('lobby-view');
@@ -458,26 +468,42 @@ socket.on('updateState', (newState) => {
   // 3. Handle main view transitions
   switch (newState.phase) {
       case 'lobby':
-           if (!playerIsInGame) {
-               // Not joined: Show only join-view, hide others (including lobby)
-               showView('join-view');
-               if(lobbyView) lobbyView.style.display = 'none'; // Ensure lobby is hidden
-           } else {
-               // Player IS joined and in lobby phase:
-               // Keep #join-view visible, restoring its class-defined display (flex)
-               if (joinView) {
-                  joinView.style.display = ''; // REMOVE inline style, let CSS classes apply
-               }
-               // lobby-view visibility is handled above.
-               // Update the join view's content again for the joined state.
-               updateJoinView(newState);
-               // Explicitly hide other main views that might have been visible
-               if (settingsView) settingsView.style.display = 'none';
-               if (gameplayView) gameplayView.style.display = 'none';
-               if (roundEndView) roundEndView.style.display = 'none';
-               if (gameOverView) gameOverView.style.display = 'none';
-           }
-          break;
+        if (!playerIsInGame) {
+            showView('join-view');
+            if(lobbyView) lobbyView.style.display = 'none';
+            // Ensure correct initial left panel state when not joined
+            if(lobbyStatusWrapper) lobbyStatusWrapper.style.display = 'block';
+            if(opponentInfoPanel) opponentInfoPanel.style.display = 'none';
+        } else {
+            // Player IS joined and in lobby phase:
+            if (joinView) joinView.style.display = ''; // Keep join view visible using CSS display
+
+            // --- Left Panel Logic ---
+            let opponent = null;
+            if (newState.players && newState.players.length > 1) {
+                opponent = newState.players.find(p => p.id !== myPlayerId);
+            }
+
+            if (opponent && lobbyStatusWrapper && opponentInfoPanel) {
+                // Opponent found: Show opponent info, hide status
+                lobbyStatusWrapper.style.display = 'none';
+                opponentInfoPanel.style.display = 'flex'; // Use flex to center items
+                updateOpponentInfoPanel(opponent); // Populate with opponent data
+            } else if (lobbyStatusWrapper && opponentInfoPanel) {
+                // No opponent (player is alone): Show status, hide opponent info
+                lobbyStatusWrapper.style.display = 'block';
+                opponentInfoPanel.style.display = 'none';
+                // updateJoinView already called above takes care of updating status wrapper content
+            }
+            // --- End Left Panel Logic ---
+
+            // Hide other main views explicitly
+            if (settingsView) settingsView.style.display = 'none';
+            if (gameplayView) gameplayView.style.display = 'none';
+            if (roundEndView) roundEndView.style.display = 'none';
+            if (gameOverView) gameOverView.style.display = 'none';
+        }
+      break;
       case 'settings':
            // Only host should see settings, others stay in lobby layout
            if (isHost) {
@@ -779,4 +805,29 @@ function getLocalStorage(key) {
         console.error("Error reading from localStorage", e);
         return null;
     }
+}
+
+
+function updateOpponentInfoPanel(opponent) {
+  if (!opponent || !opponentInfoPanel) return; // Exit if no opponent or panel
+
+  if (opponentInfoAvatar && opponent.avatarOptions && typeof Avataaars !== 'undefined') {
+      try {
+          // Adjust size as needed
+          const opponentAvatarOptions = { ...opponent.avatarOptions, width: '128px', height: '128px' };
+          opponentInfoAvatar.innerHTML = Avataaars.create(opponentAvatarOptions);
+      } catch (e) {
+          console.error("Error rendering opponent avatar", e);
+          if(opponentInfoAvatar) opponentInfoAvatar.innerHTML = '?'; // Fallback
+      }
+  } else if (opponentInfoAvatar) {
+       opponentInfoAvatar.innerHTML = '?'; // Fallback if no avatar data
+  }
+
+  if (opponentInfoName) opponentInfoName.textContent = opponent.name || 'Opponent';
+  // Access the persistent stats added by the modified getSanitizedGameState
+  if (opponentInfoGames) opponentInfoGames.textContent = opponent.gamesPlayed !== undefined ? opponent.gamesPlayed : '?';
+  if (opponentInfoScore) opponentInfoScore.textContent = opponent.totalScore !== undefined ? opponent.totalScore : '?';
+  if (opponentInfoWins) opponentInfoWins.textContent = opponent.wins !== undefined ? opponent.wins : '?'; // Added for wins
+
 }

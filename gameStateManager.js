@@ -1,6 +1,5 @@
 //gameStateManager.js
 const dataManager = require('./dataManager');
-
 let gameState = null; // Will be initialized by server.js
 
 function createInitialGameState() {
@@ -261,62 +260,50 @@ function handleChangeSettings(playerId, newSettings, isLLMAvailable) {
 }
 
 function getSanitizedGameState(playerId, isLLMAvailable) {
-    if (!gameState) return null; // Should not happen if initialized properly
+    if (!gameState) return null;
 
-    // Create a deep copy to avoid modifying the original state
     let stateToSend;
     try {
-        // structuredClone is generally faster and handles more types than JSON methods
         stateToSend = typeof structuredClone === 'function'
             ? structuredClone(gameState)
             : JSON.parse(JSON.stringify(gameState));
     } catch (e) {
         console.error("Error cloning game state:", e);
-        return null; // Cannot send state
+        return null;
     }
 
-    // --- Sanitize and Enhance ---
+    // Convert players object to array and enrich with persistent stats
+    stateToSend.players = Object.values(stateToSend.players).map(player => {
+        const persistentData = dataManager.getPlayerData(player.id, player.name, player.avatarOptions);
+        return {
+            ...player, // Current game data (id, name, score, avatar, answer, hasAnswered)
+            totalScore: persistentData.totalScore || 0,
+            gamesPlayed: persistentData.gamesPlayed || 0,
+            wins: persistentData.wins || 0,
+        };
+    });
 
-    // Players: Convert object to array for client
-    stateToSend.players = Object.values(stateToSend.players);
-
-    // Question History: Send count only, remove full history
+    // Redact question history details
     stateToSend.questionHistoryCount = gameState.questionHistory?.length || 0;
-    delete stateToSend.questionHistory; // Remove sensitive/large data
+    delete stateToSend.questionHistory;
 
-    // Current Question: Redact correct answer during play
+    // Redact correct answer during play
     if (stateToSend.phase === 'playing' && stateToSend.currentQuestion) {
-        // Ensure we're working with a copy if structuredClone wasn't used
         stateToSend.currentQuestion = { ...stateToSend.currentQuestion };
         delete stateToSend.currentQuestion['Ответ'];
     }
 
-    // Player Answers: Redact other players' answers during 'playing' phase before evaluation
-    if (stateToSend.phase === 'playing') {
-        stateToSend.players.forEach(p => {
-            if (p.id !== playerId && p.hasAnsweredThisRound) {
-                // Don't delete p.answer entirely if needed for "Submitted" status,
-                // but maybe set to a placeholder if desired? For now, leave as is
-                // as client already shows "Submitted" based on hasAnsweredThisRound
-            }
-        });
-    }
-
-    // Add client-specific flags
+    // Add client-specific flags and derived data
     stateToSend.myId = playerId;
     stateToSend.isHost = playerId === gameState.hostId;
+    stateToSend.leaderboard = dataManager.getLeaderboard();
+    stateToSend.settings.llmAvailable = isLLMAvailable;
+    stateToSend.filteredQuestionCount = gameState.filteredQuestionCount;
 
-    // Add derived/external data
-    stateToSend.leaderboard = dataManager.getLeaderboard(); // Get current leaderboard
-    stateToSend.settings.llmAvailable = isLLMAvailable; // Reflect server capability
-
-    // Force AI to 'never' if LLM is unavailable server-side, overriding stored setting for client view
+    // Adjust AI setting based on server availability
     if (!isLLMAvailable) {
         stateToSend.settings.useAi = 'never';
     }
-
-    // Ensure filtered question count is current
-    stateToSend.filteredQuestionCount = gameState.filteredQuestionCount;
 
     return stateToSend;
 }

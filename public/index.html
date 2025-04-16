@@ -30,24 +30,42 @@
 
             <!-- Join View -->
             <div id="join-view" class="flex flex-col md:flex-row gap-4 p-4">
-                <!-- Left Panel - Lobby Info -->
+                <!-- Left Panel Container -->
                 <div class="lobby-panel bg-gray-100 p-6 rounded-lg md:w-1/2 overflow-y-auto">
-                  <h2 class="text-2xl font-bold mb-6">Lobby Status</h2>
-                  <div class="grid grid-cols-2 gap-4 mb-6">
-                    <div>
-                      <span class="block text-sm text-gray-500">Players</span>
-                      <span id="current-players" class="font-semibold">0</span>/<span id="max-players" class="font-semibold">?</span>
-                    </div>
-                    <div>
-                      <span class="block text-sm text-gray-500">Host</span>
-                      <span id="host-name" class="font-semibold">N/A</span>
-                    </div>
-                  </div>
-                  <h3 class="font-semibold mb-2">Players:</h3>
-                  <ul id="player-list" class="space-y-2">
-                    <li class="text-gray-500 italic">(Empty)</li>
-                  </ul>
-                </div>
+
+                    <!-- Original Lobby Status Content (Now Wrapped) -->
+                    <div id="lobby-status-wrapper"> <!-- ADDED WRAPPER ID -->
+                        <h2 class="text-xl font-bold mb-6">Lobby Status</h2>
+                        <div class="grid grid-cols-2 gap-4 mb-6">
+                            <div>
+                                <span class="block text-sm text-gray-500">Players</span>
+                                <span id="current-players" class="font-semibold">0</span>/<span id="max-players" class="font-semibold">?</span>
+                            </div>
+                            <div>
+                                <span class="block text-sm text-gray-500">Host</span>
+                                <span id="host-name" class="font-semibold">N/A</span>
+                            </div>
+                        </div>
+                        <h3 class="font-semibold mb-2">Players:</h3>
+                        <ul id="player-list" class="space-y-2">
+                            <li class="text-gray-500 italic">(Empty)</li>
+                        </ul>
+                    </div> <!-- END WRAPPER -->
+
+                    <!-- Opponent Info Panel (Initially Hidden) -->
+                    <div id="opponent-info-panel" class="flex flex-col items-center" style="display: none;"> <!-- ADDED THIS PANEL -->
+                        <div id="opponent-info-avatar" class="w-32 h-32 mb-4 rounded-full bg-gray-300 flex items-center justify-center text-gray-500">
+                            <!-- Large opponent avatar will be inserted here -->
+                            ?
+                        </div>
+                        <h3 id="opponent-info-name" class="text-xl font-semibold mb-2">Opponent Name</h3>
+                        <p class="text-sm text-gray-600">Played games: <span id="opponent-info-games">?</span></p>
+                        <p class="text-sm text-gray-600">Total Score: <span id="opponent-info-score">?</span></p>
+                        <!-- Add wins or winrate if desired -->
+                        <p class="text-sm text-gray-600">Wins: <span id="opponent-info-wins">?</span></p>
+                    </div><!-- END OPPONENT PANEL -->
+
+                </div><!-- End Left Panel Container -->
               
                 <!-- Right Panel - Player Input (original IDs preserved!) -->
                 <div class="input-panel bg-white/80 backdrop-blur-sm p-6 rounded-xl shadow-md md:w-1/2 border border-gray-200 flex flex-col">
