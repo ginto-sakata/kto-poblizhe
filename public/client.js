@@ -315,6 +315,17 @@ function attachEventListeners() {
     if (startGameButton) {
         startGameButton.addEventListener('click', () => {
             const lobbyMessage = document.getElementById('lobby-message');
+            const playerCount = currentGameState.players?.length || 0;
+            const maxPlayers = currentGameState.maxPlayers || 2;
+
+            if (playerCount > 0 && playerCount < maxPlayers) {
+                const confirmStart = confirm(`Are you sure you want to start? The lobby is not full (${playerCount}/${maxPlayers} players).`);
+                if (!confirmStart) {
+                    if (lobbyMessage) lobbyMessage.textContent = '';
+                    return;
+                }
+            }
+
             if (lobbyMessage) lobbyMessage.textContent = "Starting game...";
             socket.emit('startGame');
         });
@@ -371,10 +382,10 @@ function attachEventListeners() {
             }
 
             const newSettings = {
-                maxPlayers: settingsMaxPlayersSelect ? settingsMaxPlayersSelect.value : 4,
+                maxPlayers: settingsMaxPlayersSelect ? settingsMaxPlayersSelect.value : 2,
                 gameMode: settingsGameModeSelect ? settingsGameModeSelect.value : 'score',
                 targetScore: settingsTargetScoreInput ? settingsTargetScoreInput.value : 10,
-                useAi: settingsAiModeSelect ? settingsAiModeSelect.value : 'never',
+                useAi: settingsAiModeSelect ? settingsAiModeSelect.value : 'auto',
                 selectedThemes: selectedThemes,
                 selectedAnswerTypes: selectedAnswerTypes,
             };
@@ -419,6 +430,32 @@ function attachEventListeners() {
                 answerInput.classList.add('bg-gray-100');
             } else if (!answer && answerFeedbackP) {
                 answerFeedbackP.textContent = 'Please enter an answer.';
+            }
+        });
+    }
+
+    //======================== --- Answer Input Listener (Sanitize) ---
+    if (answerInput) {
+        answerInput.addEventListener('input', (e) => {
+            let value = e.target.value;
+            // 1. Remove any characters that are not digits, '.', or '-'
+            let sanitized = value.replace(/[^0-9.-]/g, '');
+
+            // 2. Ensure '-' is only the first character if present
+            if (sanitized.indexOf('-') > 0) {
+                sanitized = (sanitized.startsWith('-') ? '-' : '') + sanitized.replace(/-/g, '');
+            }
+
+            // 3. Ensure only one '.' is present
+            const firstDotIndex = sanitized.indexOf('.');
+            if (firstDotIndex !== -1) {
+                const beforeDot = sanitized.substring(0, firstDotIndex + 1);
+                const afterDot = sanitized.substring(firstDotIndex + 1).replace(/\./g, '');
+                sanitized = beforeDot + afterDot;
+            }
+
+            if (e.target.value !== sanitized) {
+                 e.target.value = sanitized;
             }
         });
     }
