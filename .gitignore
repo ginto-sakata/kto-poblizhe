@@ -4,3 +4,4 @@ data/stats.json
 .vscode
 cline_docs/currentTask.md
 cline_docs/projectRoadmap.md
+prompts/llmPrompt.txt
