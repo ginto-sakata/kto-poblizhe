@@ -145,7 +145,18 @@ function updateLobbyView(state, isHost) {
         if(modeDesc === 'score') modeDesc += ` (Target: ${state.settings.targetScore})`;
         gameModeSpan.textContent = modeDesc;
     }
-    if (aiModeSpan) aiModeSpan.textContent = state.settings.useAi?.replace('_', ' ') || '?';
+
+    if (aiModeSpan) {
+        let aiText = '?';
+        switch (state.settings.useAi) {
+            case 'no_ai': aiText = 'Без ведущего'; break;
+            case 'auto': aiText = 'Авто'; break;
+            case 'ai_always': aiText = 'Всегда'; break;
+            default: aiText = state.settings.useAi || '?';
+        }
+        aiModeSpan.textContent = aiText + (state.settings.llmAvailable && state.settings.useAi !== 'no_ai' ? ' 🤖' : '');
+    }
+
 
     if (filteredQuestionCountSpan) filteredQuestionCountSpan.textContent = state.filteredQuestionCount ?? '?';
 
@@ -197,16 +208,17 @@ function updateSettingsView(state, isHost) {
 
     if (settingsAiModeSelect) {
         if (settings.llmAvailable) {
-            settingsAiModeSelect.value = 'always';
+            settingsAiModeSelect.value = settings.useAi || 'auto';
             settingsAiModeSelect.disabled = false;
             settingsAiModeSelect.classList.remove('bg-gray-100');
         } else {
-            settingsAiModeSelect.value = 'never';
+            settingsAiModeSelect.value = 'no_ai';
             settingsAiModeSelect.disabled = true;
             settingsAiModeSelect.classList.add('bg-gray-100');
         }
     }
-    if (settingsLlmStatusSpan) settingsLlmStatusSpan.textContent = settings.llmAvailable ? `(${settings.llmModel})` : "(Not Available)";
+    if (settingsLlmStatusSpan) settingsLlmStatusSpan.textContent = settings.llmAvailable ? `(Gemini 2.0 Flash)` : "(Недоступно)";
+
 
     if (settingsThemesListDiv && settings.availableThemes) {
         settingsThemesListDiv.innerHTML = settings.availableThemes.map(theme => {

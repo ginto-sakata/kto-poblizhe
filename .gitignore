@@ -5,3 +5,5 @@ data/stats.json
 cline_docs/currentTask.md
 cline_docs/projectRoadmap.md
 prompts/llmPrompt.txt
+create_context.sh
+kto_poblizhet_codebase_context.txt

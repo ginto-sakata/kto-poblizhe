@@ -91,7 +91,7 @@
                      <!-- Max Players -->
                      <div class="setting-group flex items-center space-x-4">
                          <label for="settings-max-players" class="w-28 text-sm font-medium text-gray-700">Max Players:</label>
-                         <input type="number" id="settings-max-players" min="2" max="4" value="4"
+                         <input type="number" id="settings-max-players" min="1" max="10" value="2"
                              class="flex-1 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-sm w-16 text-center">
                      </div>
                      <!-- Game Mode -->
@@ -105,11 +105,11 @@
                      </div>
                     <!-- AI Mode -->
                      <div class="setting-group flex items-center space-x-4">
-                         <label for="settings-ai-mode" class="w-28 text-sm font-medium text-gray-700">Use AI:</label>
+                         <label for="settings-ai-mode" class="w-40 text-sm font-medium text-gray-700">Игра с ведущим:</label>
                          <select id="settings-ai-mode" disabled class="flex-1 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-sm bg-gray-100 disabled:opacity-70">
-                             <option value="never">Never</option>
-                             <option value="text_only">For Text/Complex Answers (AI=1)</option>
-                             <option value="always" selected>Always (If Possible)</option>
+                             <option value="no_ai">Игра без ведущего</option>
+                             <option value="auto">Авто (Ведущий для нечисловых ответов)</option>
+                             <option value="ai_always">Всегда (Ведущий для всех ответов)</option>
                          </select>
                           <span id="settings-llm-status" class="info-message text-xs text-gray-500 min-w-[100px] text-right"></span>
                      </div>
@@ -163,7 +163,7 @@
                     <p class="question-text text-lg md:text-xl font-medium text-gray-900" id="question-text">?</p>
                 </div>
                 <div class="answer-area flex flex-col items-center space-y-3 mb-6">
-                    <input type="text" id="answer-input" placeholder="Your answer..." class="px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 w-full max-w-md text-center">
+                    <input type="text" id="answer-input" inputmode="decimal" placeholder="Your answer..." class="px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 w-full max-w-md text-center">
                     <button id="submit-answer-button" class="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 shadow disabled:opacity-50 disabled:cursor-not-allowed transition duration-150 text-lg">
                         Submit Answer
                     </button>
@@ -210,7 +210,7 @@
     <script src="avatar.js"></script>
     <script src="uiUpdater.js"></script>
     <script src="playerPanel.js"></script>
-    <script src="rightJoinPanel.js"></script> <!-- ADD SCRIPT FOR RIGHT PANEL -->
+    <script src="rightJoinPanel.js"></script>
     <script src="client.js"></script>
 </body>
 </html>

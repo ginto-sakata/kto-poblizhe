@@ -9,7 +9,7 @@ function createInitialGameState() {
     const initialState = {
         phase: 'lobby',
         players: {},
-        maxPlayers: 4,
+        maxPlayers: 2,
         hostId: null,
         currentQuestion: null,
         questionHistory: [],
@@ -17,8 +17,8 @@ function createInitialGameState() {
             gameMode: 'score',
             targetScore: 10,
             timeLimit: 300,
-            useAi: 'never',
-            llmModel: 'gemini-2.0-flash-lite',
+            useAi: 'auto',
+            llmModel: 'gemini-2.0-flash',
             availableThemes: themes,
             selectedThemes: [...themes],
             availableAnswerTypes: answerTypes,
@@ -203,14 +203,15 @@ function handleChangeSettings(playerId, newSettings, isLLMAvailable) {
     }
 
     //======================== --- Apply AI Usage ---
-    if (newSettings.useAi && ['never', 'text_only', 'always'].includes(newSettings.useAi)) {
+    const allowedAiModes = ['no_ai', 'auto', 'ai_always'];
+    if (newSettings.useAi && allowedAiModes.includes(newSettings.useAi)) {
         const requestedAi = newSettings.useAi;
         let finalAi = requestedAi;
 
-        if (!isLLMAvailable && requestedAi !== 'never') {
-            finalAi = 'never';
-            if (gameState.settings.useAi !== 'never') {
-                warningMsg = "LLM is not available on the server. AI usage set to 'Never'.";
+        if (!isLLMAvailable && requestedAi !== 'no_ai') {
+            finalAi = 'no_ai';
+            if (gameState.settings.useAi !== 'no_ai') {
+                warningMsg = "LLM is not available on the server. AI mode set to 'No AI'.";
             }
         }
 
@@ -293,8 +294,9 @@ function getSanitizedGameState(playerId, isLLMAvailable) {
     stateToSend.settings.llmAvailable = isLLMAvailable;
     stateToSend.filteredQuestionCount = gameState.filteredQuestionCount;
 
+    //======================== --- Adjust AI mode if LLM is unavailable ---
     if (!isLLMAvailable) {
-        stateToSend.settings.useAi = 'never';
+        stateToSend.settings.useAi = 'no_ai';
     }
 
     return stateToSend;

@@ -89,11 +89,12 @@ function nextRound() {
     gameState.roundResults = null;
     gameState.currentQuestion = null;
 
-    gameStateManager.updateFilteredQuestions();
+    gameStateManager.updateFilteredQuestions(); // Update count based on current settings
     const questions = dataManager.getQuestions();
     const history = gameState.questionHistory;
     const currentThemes = gameState.settings.selectedThemes;
     const currentTypes = gameState.settings.selectedAnswerTypes;
+    const useAiMode = gameState.settings.useAi;
 
     if (!questions || questions.length === 0) {
         console.error("No questions loaded.");
@@ -101,17 +102,29 @@ function nextRound() {
         return;
     }
 
-    const uniqueAvailableQuestions = questions.filter(q =>
-        q && q['№'] && q['Тема'] && q['Тип ответа'] &&
-        !history.includes(q['№']) &&
-        currentThemes.includes(q['Тема']) &&
-        currentTypes.includes(q['Тип ответа'])
-    );
+    // Filter questions based on history, themes, types, AND AI mode if applicable
+    const uniqueAvailableQuestions = questions.filter(q => {
+        const themeMatch = currentThemes.includes(q['Тема']);
+        const typeMatch = currentTypes.includes(q['Тип ответа']);
+        const notInHistory = !history.includes(q['№']);
+        const baseCheck = q && q['№'] && q['Тема'] && q['Тип ответа'] && notInHistory && themeMatch && typeMatch;
+
+        // Apply AI column filtering only if mode is 'no_ai'
+        if (useAiMode === 'no_ai') {
+            return baseCheck && q.AI === 0;
+        } else {
+            return baseCheck; // Other modes don't filter by AI column
+        }
+    });
+
 
     if (uniqueAvailableQuestions.length === 0) {
-        const reason = gameState.filteredQuestionCount > 0
-            ? "Закончились уникальные вопросы для этих настроек!"
-            : "Нет вопросов, соответствующих выбранным фильтрам.";
+        let reason = "Закончились уникальные вопросы для этих настроек!";
+        if (gameState.filteredQuestionCount === 0) {
+             reason = "Нет вопросов, соответствующих выбранным фильтрам.";
+        } else if (useAiMode === 'no_ai' && gameState.filteredQuestionCount > 0) {
+            reason = "Закончились вопросы, подходящие для режима 'Без ведущего' (AI=0)."
+        }
         console.log(reason);
         endGame(reason);
         return;
@@ -136,6 +149,7 @@ function handleAnswer(playerId, answer) {
     if (!player) { console.warn(`Answer from non-player ID: ${playerId}`); return; }
     if (player.hasAnsweredThisRound) { io?.to(playerId)?.emit('gameError', 'Вы уже ответили в этом раунде.'); return; }
 
+    // Input should already be somewhat sanitized by client-side JS
     const submittedAnswer = String(answer || '').trim().slice(0, 200);
     if (!submittedAnswer) { io?.to(playerId)?.emit('gameError', 'Ответ не может быть пустым.'); return; }
 
@@ -171,10 +185,31 @@ async function evaluateRound() {
 
     const question = gameState.currentQuestion;
     const correctAnswerRaw = question['Ответ'];
-    const useLLM = llmService.isLLMAvailable() && (
-        gameState.settings.useAi === 'always' ||
-        (gameState.settings.useAi === 'text_only' && question.AI === 1)
-    );
+
+    //======================== --- Determine if LLM should be used ---
+    let useLLM = false;
+    if (llmService.isLLMAvailable()) {
+        if (gameState.settings.useAi === 'ai_always') {
+            useLLM = true;
+        } else if (gameState.settings.useAi === 'auto') {
+            const playerAnswers = Object.values(players).map(p => p.answer);
+            const anyPlayerNonNumeric = playerAnswers.some(ans => {
+                if (ans === null || ans === undefined || String(ans).trim() === '') return false;
+                return scoringService.parseValue(ans) === null;
+            });
+
+            const correctAnswerIsNonNumeric = scoringService.parseValue(correctAnswerRaw) === null;
+
+            if (anyPlayerNonNumeric || correctAnswerIsNonNumeric) {
+                useLLM = true;
+                console.log(`Auto AI mode: Using LLM. Player non-numeric: ${anyPlayerNonNumeric}, Correct non-numeric: ${correctAnswerIsNonNumeric}`);
+            } else {
+                 console.log("Auto AI mode: All answers and correct answer were numerical (or empty), using numerical scoring.");
+            }
+        }
+    }
+    //======================== --- End LLM Usage Determination ---
+
 
     let roundScores = {};
     let llmCommentary = "";
@@ -189,8 +224,14 @@ async function evaluateRound() {
             llmCommentary = llmResult.commentary;
             evaluationMessage = `(AI) Правильный ответ: ${correctAnswerRaw}.`;
         } else {
+            // Should only get here if mode is 'no_ai' or 'auto' with fully numeric answers/question
             roundScores = scoringService.evaluateNumerically(correctAnswerRaw, players);
             evaluationMessage = `Правильный ответ: ${correctAnswerRaw}. `;
+             if (gameState.settings.useAi === 'auto') {
+                 evaluationMessage += "(Режим Авто: только числа)";
+             } else if (gameState.settings.useAi === 'no_ai') {
+                 evaluationMessage += "(Режим Без ведущего)";
+             }
         }
     } catch (error) {
         console.error(`Evaluation Error (Q: ${question['№']}):`, error);
@@ -228,6 +269,7 @@ async function evaluateRound() {
     checkEndGameOrNextRound();
 }
 
+
 //============================= Check End Game or Next Round =============================
 function checkEndGameOrNextRound() {
     const gameState = gameStateManager.getGameState();
@@ -248,22 +290,51 @@ function checkEndGameOrNextRound() {
     }
     //======================== --- Check Out of Questions ---
     if (!gameOver && gameState.phase !== 'lobby') {
-        gameStateManager.updateFilteredQuestions(); const questions = dataManager.getQuestions(); const history = gameState.questionHistory || [];
-        const currentThemes = gameState.settings.selectedThemes || []; const currentTypes = gameState.settings.selectedAnswerTypes || [];
-        if (!questions || questions.length === 0) { gameOver = true; reason = "Ошибка: Вопросы не загружены."; console.error(reason); }
-        else {
-            const remainingUniqueQuestions = questions.filter(q => q && q['№'] && q['Тема'] && q['Тип ответа'] && !history.includes(q['№']) && currentThemes.includes(q['Тема']) && currentTypes.includes(q['Тип ответа'])).length;
+        gameStateManager.updateFilteredQuestions(); // Update count based on current filters
+        const questions = dataManager.getQuestions();
+        const history = gameState.questionHistory || [];
+        const currentThemes = gameState.settings.selectedThemes || [];
+        const currentTypes = gameState.settings.selectedAnswerTypes || [];
+        const useAiMode = gameState.settings.useAi;
+
+        if (!questions || questions.length === 0) {
+             gameOver = true; reason = "Ошибка: Вопросы не загружены."; console.error(reason);
+        } else {
+            const remainingUniqueQuestions = questions.filter(q => {
+                 const themeMatch = currentThemes.includes(q['Тема']);
+                 const typeMatch = currentTypes.includes(q['Тип ответа']);
+                 const notInHistory = !history.includes(q['№']);
+                 const baseCheck = q && q['№'] && q['Тема'] && q['Тип ответа'] && notInHistory && themeMatch && typeMatch;
+
+                 if (useAiMode === 'no_ai') {
+                     return baseCheck && q.AI === 0;
+                 } else {
+                     return baseCheck;
+                 }
+            }).length;
+
             if (remainingUniqueQuestions === 0) {
-                gameOver = true; reason = "Закончились уникальные вопросы для фильтров!";
+                gameOver = true;
+                reason = "Закончились уникальные вопросы для выбранных фильтров";
+                if (useAiMode === 'no_ai') reason += " (в режиме 'Без ведущего')";
+                reason += "!";
+
                 if (playersArray.length > 0) {
-                    const sortedPlayers = playersArray.sort((a, b) => b.score - a.score); const highestScore = sortedPlayers[0].score;
-                    if (highestScore <= 0) { winner = null; reason += " Победителя нет."; }
-                    else {
+                    const sortedPlayers = playersArray.sort((a, b) => b.score - a.score);
+                    const highestScore = sortedPlayers[0].score;
+                    if (highestScore <= 0) {
+                        winner = null; reason += " Победителя нет.";
+                    } else {
                         const potentialWinners = sortedPlayers.filter(p => p.score === highestScore);
-                        if (potentialWinners.length === 1) { winner = potentialWinners[0]; reason += ` ${winner.name} побеждает с ${highestScore} очками!`; }
-                        else { winner = null; reason += ` Ничья при ${highestScore} очках: ${potentialWinners.map(p => p.name).join(' и ')}!`; }
+                        if (potentialWinners.length === 1) {
+                            winner = potentialWinners[0]; reason += ` ${winner.name} побеждает с ${highestScore} очками!`;
+                        } else {
+                            winner = null; reason += ` Ничья при ${highestScore} очках: ${potentialWinners.map(p => p.name).join(' и ')}!`;
+                        }
                     }
-                } else { winner = null; reason += " Нет игроков."; }
+                } else {
+                    winner = null; reason += " Нет игроков.";
+                }
             }
         }
     }
