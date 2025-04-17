@@ -21,7 +21,7 @@
 
 1.  **📥 Клонируй repo:**
     ```bash
-    git clone <URL_репозитория>
+    git clone https://github.com/ginto-sakata/kto-poblizhe
     cd kto-poblizhet
     ```
 2.  **🔧 Установи зависимости:**
