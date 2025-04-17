@@ -22,7 +22,7 @@
 1.  **📥 Клонируй repo:**
     ```bash
     git clone https://github.com/ginto-sakata/kto-poblizhe
-    cd kto-poblizhet
+    cd kto-poblizhe
     ```
 2.  **🔧 Установи зависимости:**
     ```bash
