@@ -606,5 +606,57 @@
     "answerStats": {
       "2": 1
     }
+  },
+  "2TuipovJ2XdLovRaAAAD": {
+    "name": "Ginto",
+    "avatarOptions": {
+      "top": "dreads",
+      "accessories": "none",
+      "facialHair": "none",
+      "clothing": "shirtVNeck",
+      "eyes": "side",
+      "eyebrows": "defaultNatural",
+      "mouth": "sad",
+      "skin": "black",
+      "hairColor": "red",
+      "facialHairColor": "black",
+      "clothingColor": "pastelRed",
+      "hatColor": "white",
+      "accessoriesColor": "blue02",
+      "clothingGraphic": "none",
+      "style": "transparent",
+      "width": "100%",
+      "height": "100%"
+    },
+    "totalScore": 0,
+    "gamesPlayed": 0,
+    "wins": 0,
+    "answerStats": {}
+  },
+  "-U0yOH9kPUZQ07kgAAAF": {
+    "name": "Ленка",
+    "avatarOptions": {
+      "top": "frida",
+      "accessories": "none",
+      "facialHair": "none",
+      "clothing": "graphicShirt",
+      "eyes": "winkWacky",
+      "eyebrows": "raisedExcitedNatural",
+      "mouth": "disbelief",
+      "skin": "pale",
+      "hairColor": "auburn",
+      "facialHairColor": "brown",
+      "clothingColor": "blue03",
+      "hatColor": "white",
+      "accessoriesColor": "pastelRed",
+      "clothingGraphic": "none",
+      "style": "transparent",
+      "width": "100%",
+      "height": "100%"
+    },
+    "totalScore": 0,
+    "gamesPlayed": 0,
+    "wins": 0,
+    "answerStats": {}
   }
 }

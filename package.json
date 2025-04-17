@@ -3,10 +3,11 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "jest",
     "watch": "tailwindcss -i ./src/input.css -o ./public/style.css --watch",
     "build": "tailwindcss -i ./src/input.css -o ./public/style.css --minify",
-    "start": "node server.js"
+    "start": "node server.js",
+    "dev": "concurrently \"npm run watch\" \"npm run start\""
   },
   "keywords": [],
   "author": "",
@@ -25,6 +26,8 @@
     "socket.io": "^4.8.1"
   },
   "devDependencies": {
+    "concurrently": "^9.1.2",
+    "jest": "^29.7.0",
     "tailwindcss": "^3.4.17"
   }
 }

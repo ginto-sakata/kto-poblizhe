@@ -1,11 +1,12 @@
 // socketHandlers.js
 const gameStateManager = require('./gameStateManager');
 const gameController = require('./gameController');
-const dataManager = require('./dataManager'); // Needed for player data on disconnect potentially
-const llmService = require('./llmservice'); // Needed for isLLMAvailable
+const dataManager = require('./dataManager');
+const llmService = require('./llmservice');
 
-let io; // To be set by initialize
+let io;
 
+//============================= Initialize Socket Handlers =============================
 function initialize(socketIoInstance) {
     io = socketIoInstance;
     if (!io) {
@@ -16,10 +17,11 @@ function initialize(socketIoInstance) {
     console.log("Socket handlers initialized.");
 }
 
+//============================= Setup Socket Events =============================
 function setupSocketEvents(socket) {
     console.log(`User connected: ${socket.id}`);
 
-    // Send initial state to the connecting client
+    //======================== --- Send Initial State ---
     const initialState = gameStateManager.getSanitizedGameState(socket.id, llmService.isLLMAvailable());
     if (initialState) {
         socket.emit('updateState', initialState);
@@ -28,8 +30,7 @@ function setupSocketEvents(socket) {
         console.error("Failed to send initial state, gameState might be null.");
     }
 
-    // --- Event Listeners ---
-
+    //======================== --- Event Listener: joinGame ---
     socket.on('joinGame', (playerJoinData) => {
         if (!playerJoinData || typeof playerJoinData !== 'object') { socket.emit('joinError', 'Invalid join data format.'); return; }
         const { name, avatarOptions } = playerJoinData;
@@ -41,19 +42,16 @@ function setupSocketEvents(socket) {
 
         if (result.success) {
             const gameState = gameStateManager.getGameState();
-            const gameRoomId = gameState.hostId || 'default_game_room'; // Room is usually based on host
+            const gameRoomId = gameState.hostId || 'default_game_room';
             socket.join(gameRoomId);
             console.log(`Socket ${socket.id} (${name}) joined room ${gameRoomId}`);
 
-            // --- MODIFIED BROADCAST LOGIC ---
-            // Check if the lobby was just created by this join action
+            //======================== --- Broadcast Logic on Join ---
             const wasLobbyJustCreated = initialPlayerCount === 0 && Object.keys(gameState.players).length === 1;
 
             if (wasLobbyJustCreated) {
                 console.log(`Broadcasting initial lobby creation to ALL sockets.`);
-                // Send sanitized state individually to ALL connected sockets
                 io.sockets.sockets.forEach(connectedSocket => {
-                    // Get the state sanitized specifically for the recipient socket
                     const stateToSend = gameStateManager.getSanitizedGameState(connectedSocket.id, llmService.isLLMAvailable());
                     if (stateToSend) {
                         connectedSocket.emit('updateState', stateToSend);
@@ -61,76 +59,60 @@ function setupSocketEvents(socket) {
                 });
 
             } else {
-                // Existing lobby, broadcast normally (to the room/relevant players)
                 console.log(`Broadcasting lobby update within room ${gameRoomId}.`);
-                gameController.broadcastGameState(); // Assumes this targets the correct players already
+                gameController.broadcastGameState();
             }
-            // --- END MODIFIED BROADCAST LOGIC ---
+            //======================== --- End Broadcast Logic ---
 
        } else {
-           socket.emit('joinError', result.error || 'Failed to join.'); // Send specific error
+           socket.emit('joinError', result.error || 'Failed to join.');
        }
     });
 
+    //======================== --- Event Listener: leaveLobby ---
     socket.on('leaveLobby', () => {
         console.log(`Received leaveLobby request from ${socket.id}`);
-        // Use the existing removePlayer function which handles state update and host transfer
         const { playerExisted, gameShouldEnd } = gameStateManager.removePlayer(socket.id);
 
         if (playerExisted) {
             console.log(`Player ${socket.id} successfully processed for leaving.`);
-            // Leave the socket room associated with the game/lobby
-            // Note: Finding the correct room ID might need adjustment if you have multiple lobbies
-            const gameState = gameStateManager.getGameState(); // Get state *after* removal attempt
-            const gameRoomId = gameState?.hostId || 'default_game_room'; // Use *new* host ID or default
-            // Check if the socket is actually in the room before trying to leave
+            const gameState = gameStateManager.getGameState();
+            const gameRoomId = gameState?.hostId || 'default_game_room';
             if (socket.rooms.has(gameRoomId)) {
                  socket.leave(gameRoomId);
                  console.log(`Socket ${socket.id} left room ${gameRoomId}`);
             } else {
-                // It might have already left if host changed and broadcast happened before leave msg processed?
-                // Or if using a different room ID logic.
                 console.warn(`Socket ${socket.id} was not in room ${gameRoomId} to leave.`);
             }
 
-
-            const updatedGameState = gameStateManager.getGameState(); // Get state *after* removal
+            const updatedGameState = gameStateManager.getGameState();
             const isLobbyNowEmpty = !updatedGameState.hostId && Object.keys(updatedGameState.players).length === 0;
 
             if (gameShouldEnd) {
-                 // This case handles ending mid-game, which is less likely here, but keep it.
-                 // Should probably also broadcast globally if it empties the lobby.
                  gameController.endGame("Not enough players left.");
-                 // Add global broadcast here too if endGame doesn't handle it
                  console.log(`Broadcasting final empty state to ALL sockets after game ended.`);
                  io.sockets.sockets.forEach(connectedSocket => {
                      const finalState = gameStateManager.getSanitizedGameState(connectedSocket.id, llmService.isLLMAvailable());
                      if (finalState) connectedSocket.emit('updateState', finalState);
                  });
             } else if (isLobbyNowEmpty) {
-                // Last player left the lobby, game state was reset. Broadcast empty state to everyone.
                 console.log(`Broadcasting reset empty state to ALL sockets.`);
                 io.sockets.sockets.forEach(connectedSocket => {
                     const finalState = gameStateManager.getSanitizedGameState(connectedSocket.id, llmService.isLLMAvailable());
                     if (finalState) connectedSocket.emit('updateState', finalState);
                 });
-                // The leaving player is included in the io.sockets loop, so they get the update too.
             }
              else {
-                 // Lobby still exists, broadcast normally to remaining players.
                  console.log(`Broadcasting updated lobby state after player ${socket.id} left.`);
-                 gameController.broadcastGameState(); // Assumes this targets correctly
-                 // Also send state specifically to the leaving player so their UI resets.
+                 gameController.broadcastGameState();
                  const stateForLeavingPlayer = gameStateManager.getSanitizedGameState(socket.id, llmService.isLLMAvailable());
                  if (stateForLeavingPlayer) {
                     socket.emit('updateState', stateForLeavingPlayer);
                  }
              }
 
-
         } else {
             console.log(`Player ${socket.id} tried to leave, but was not found in the game state.`);
-            // Optionally send an error or just update their state which should show them as not joined
             const stateForLeavingPlayer = gameStateManager.getSanitizedGameState(socket.id, llmService.isLLMAvailable());
              if (stateForLeavingPlayer) {
                 socket.emit('updateState', stateForLeavingPlayer);
@@ -138,46 +120,47 @@ function setupSocketEvents(socket) {
         }
     });
 
-
+    //======================== --- Event Listener: startGame ---
     socket.on('startGame', () => {
         gameController.startGame(socket.id);
     });
 
+    //======================== --- Event Listener: submitAnswer ---
     socket.on('submitAnswer', (answer) => {
         gameController.handleAnswer(socket.id, answer);
     });
 
+    //======================== --- Event Listener: changeSettings ---
     socket.on('changeSettings', (newSettings) => {
         if (typeof newSettings !== 'object' || newSettings === null) { socket.emit('gameError', 'Invalid settings format.'); return; }
         const result = gameStateManager.handleChangeSettings(socket.id, newSettings, llmService.isLLMAvailable());
         if (result.error) { socket.emit('gameError', result.error); }
-        if (result.warning) { console.warn(`Settings Warning for ${socket.id}: ${result.warning}`); /* Maybe emit warning? */ }
+        if (result.warning) { console.warn(`Settings Warning for ${socket.id}: ${result.warning}`); }
         if (result.settingsChanged) { gameController.broadcastGameState(); }
     });
 
+    //======================== --- Event Listener: requestReset ---
     socket.on('requestReset', () => {
         gameController.requestResetHandler(socket.id);
     });
 
+    //======================== --- Event Listener: disconnect ---
     socket.on('disconnect', (reason) => {
         console.log(`User disconnected: ${socket.id}. Reason: ${reason}`);
         const { playerExisted, gameShouldEnd } = gameStateManager.removePlayer(socket.id);
 
         if (playerExisted) {
-            const updatedGameState = gameStateManager.getGameState(); // Get state *after* removal
+            const updatedGameState = gameStateManager.getGameState();
             const isLobbyNowEmpty = !updatedGameState.hostId && Object.keys(updatedGameState.players).length === 0;
-    
+
             if (gameShouldEnd) {
-                 // Game ended mid-play due to disconnect
                  gameController.endGame("Not enough players left after disconnect.");
-                 // Broadcast the final state globally
                  console.log(`Broadcasting final empty state to ALL sockets after disconnect ended game.`);
                  io.sockets.sockets.forEach(connectedSocket => {
                     const finalState = gameStateManager.getSanitizedGameState(connectedSocket.id, llmService.isLLMAvailable());
                     if (finalState) connectedSocket.emit('updateState', finalState);
                  });
             } else if (isLobbyNowEmpty) {
-                // Last player disconnected from lobby, game state was reset. Broadcast empty state to everyone.
                 console.log(`Broadcasting reset empty state to ALL sockets after last player disconnected.`);
                  io.sockets.sockets.forEach(connectedSocket => {
                     const finalState = gameStateManager.getSanitizedGameState(connectedSocket.id, llmService.isLLMAvailable());
@@ -185,21 +168,15 @@ function setupSocketEvents(socket) {
                  });
             }
             else {
-                // Lobby/game still exists, broadcast normally to remaining players.
                 console.log(`Broadcasting updated game state after player ${socket.id} disconnected.`);
-                gameController.broadcastGameState(); // Assumes this targets correctly
+                gameController.broadcastGameState();
             }
         }
-         // Leave the game room explicitly? (Might happen automatically)
-         // const gameState = gameStateManager.getGameState();
-         // const gameRoomId = gameState?.hostId || 'default_game_room';
-         // socket.leave(gameRoomId);
-         // console.log(`Socket ${socket.id} left room ${gameRoomId}`);
     });
 
+    //======================== --- Event Listener: error ---
     socket.on('error', (error) => {
       console.error(`Socket Error from ${socket.id}:`, error);
-      // socket.emit('gameError', 'An unexpected socket error occurred.');
     });
 }
 

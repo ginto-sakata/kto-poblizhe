@@ -8,9 +8,9 @@ const PLAYERS_FILE = path.join(__dirname, 'data', 'players.json');
 const QUESTIONS_FILE = path.join(__dirname, 'data', 'game.csv');
 
 let questions = [];
-let playersDB = {}; // In-memory cache for players.json
+let playersDB = {};
 
-// --- Question Loading ---
+//============================= Question Loading =============================
 function loadQuestions() {
     return new Promise((resolve, reject) => {
         const loadedQuestions = [];
@@ -42,10 +42,12 @@ function loadQuestions() {
     });
 }
 
+//============================= Get Questions =============================
 function getQuestions() {
     return questions;
 }
 
+//============================= Get Available Themes And Types =============================
 function getAvailableThemesAndTypes() {
     if (!questions || questions.length === 0) return { themes: [], answerTypes: [] };
     const validQuestions = questions.filter(q => q['Тема'] && q['Тип ответа']);
@@ -54,8 +56,7 @@ function getAvailableThemesAndTypes() {
     return { themes, answerTypes };
 }
 
-
-// --- Player Data (players.json) ---
+//============================= Player Data Loading =============================
 function loadPlayers() {
     try {
         const dataDir = path.dirname(PLAYERS_FILE);
@@ -76,94 +77,87 @@ function loadPlayers() {
         } else {
             playersDB = {};
             console.log("players.json not found, starting fresh.");
-            savePlayers(); // Attempt to create the file
+            savePlayers();
         }
     } catch (error) {
         console.error("Error loading or parsing players.json:", error);
-        playersDB = {}; // Start with empty if loading fails
+        playersDB = {};
     }
 }
 
+//============================= Player Data Saving =============================
 function savePlayers() {
     try {
-        // Ensure directory exists (important for first save)
         const dataDir = path.dirname(PLAYERS_FILE);
         if (!fs.existsSync(dataDir)){
             fs.mkdirSync(dataDir, { recursive: true });
         }
-        // Save the current state of playersDB cache
-        fs.writeFileSync(PLAYERS_FILE, JSON.stringify(playersDB, null, 2), 'utf8'); // Pretty print
-        // console.log('Player database (players.json) saved.'); // Less noisy logging
+        fs.writeFileSync(PLAYERS_FILE, JSON.stringify(playersDB, null, 2), 'utf8');
     } catch (error) {
         console.error("Error saving players.json:", error);
     }
 }
 
-// Gets player data from cache, creating if necessary (but doesn't save immediately)
+//============================= Get Player Data =============================
 function getPlayerData(playerId, playerName, avatarOptions = null) {
     if (!playersDB[playerId]) {
         playersDB[playerId] = {
             name: playerName,
-            avatarOptions: avatarOptions, // Store initial avatar
+            avatarOptions: avatarOptions,
             totalScore: 0,
             gamesPlayed: 0,
             wins: 0,
-            answerStats: {} // { scoreValue: count }
+            answerStats: {}
         };
         console.log(`Created new DB entry for player: ${playerName} (${playerId})`);
-        // Don't save here, save only on game end
     } else {
-        // Update name/avatar if they changed
         let updated = false;
         if (playersDB[playerId].name !== playerName) {
              console.log(`Updating name for player ${playerId} from ${playersDB[playerId].name} to ${playerName}`);
              playersDB[playerId].name = playerName;
              updated = true;
         }
-        // Only update avatar if a new one is explicitly provided (avoids overwriting with null)
         if (avatarOptions && JSON.stringify(playersDB[playerId].avatarOptions) !== JSON.stringify(avatarOptions)) {
             console.log(`Updating avatar for player ${playerId}`);
             playersDB[playerId].avatarOptions = avatarOptions;
             updated = true;
         }
-        // Don't save here
     }
     return playersDB[playerId];
 }
 
-// Updates a specific stat for a player IN THE CACHE (doesn't save file)
+//============================= Update Player Stat In Memory =============================
 function updatePlayerStatInMemory(playerId, statKey, value, increment = true) {
     if (!playersDB[playerId]) {
         console.warn(`Attempted to update stat '${statKey}' for non-existent player ID ${playerId} in DB cache.`);
-        return; // Or create the player entry first? Depends on desired behavior.
+        return;
     }
     if (statKey === 'answerStats') {
-         // Special handling for answerStats object
-         const scoreValue = String(value); // The key is the score (e.g., "0", "2", "3")
+         const scoreValue = String(value);
          playersDB[playerId].answerStats[scoreValue] = (playersDB[playerId].answerStats[scoreValue] || 0) + 1;
     } else if (increment) {
         playersDB[playerId][statKey] = (playersDB[playerId][statKey] || 0) + value;
     } else {
         playersDB[playerId][statKey] = value;
     }
-    // No save here
 }
 
+//============================= Get Leaderboard =============================
 function getLeaderboard(limit = 5) {
      return Object.entries(playersDB)
         .map(([id, data]) => ({
-             id, // Keep id if needed elsewhere
-             name: data.name || `ID_${id.substring(0,4)}`, // Use stored name
+             id,
+             name: data.name || `ID_${id.substring(0,4)}`,
              score: data.totalScore || 0,
              wins: data.wins || 0,
-             // avatarOptions: data.avatarOptions // Optionally include avatar for leaderboard display
          }))
-        .sort((a, b) => b.score - a.score) // Sort by total score
+        .sort((a, b) => b.score - a.score)
         .slice(0, limit);
 }
 
+//============================= Get All Players Data =============================
 function getAllPlayersData() {
-    return playersDB; // Return the cache
+    return playersDB;
 }
 
 
@@ -172,7 +166,7 @@ module.exports = {
     getQuestions,
     getAvailableThemesAndTypes,
     loadPlayers,
-    savePlayers, // Export save for server exit
+    savePlayers,
     getPlayerData,
     updatePlayerStatInMemory,
     getLeaderboard,

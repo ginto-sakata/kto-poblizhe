@@ -5,16 +5,18 @@ const gameStateManager = require('./gameStateManager');
 const llmService = require('./llmservice');
 const scoringService = require('./scoringService');
 
-let io; // To be set by initialize
+let io;
 
+//============================= Initialize Controller =============================
 function initialize(socketIoInstance) {
     io = socketIoInstance;
     if (!io) {
         console.error("FATAL: Socket.IO instance not provided to gameController.initialize");
-        process.exit(1); // Cannot function without io
+        process.exit(1);
     }
 }
 
+//============================= Broadcast Game State =============================
 function broadcastGameState() {
     const gameState = gameStateManager.getGameState();
     if (!gameState) {
@@ -32,9 +34,9 @@ function broadcastGameState() {
             }
         }
     });
-    // Add spectator broadcast here if needed
 }
 
+//============================= Start Game =============================
 function startGame(playerId) {
     const gameState = gameStateManager.getGameState();
     if (!gameState) { io?.to(playerId)?.emit('gameError', 'Игра не готова.'); return; }
@@ -71,6 +73,7 @@ function startGame(playerId) {
     nextRound();
 }
 
+//============================= Next Round =============================
 function nextRound() {
     const gameState = gameStateManager.getGameState();
     if (!gameState || gameState.phase === 'game_over') {
@@ -123,6 +126,7 @@ function nextRound() {
     broadcastGameState();
 }
 
+//============================= Handle Answer =============================
 function handleAnswer(playerId, answer) {
     const gameState = gameStateManager.getGameState();
     if (!gameState || gameState.phase !== 'playing') { io?.to(playerId)?.emit('gameError', 'Ответы сейчас не принимаются.'); return; }
@@ -143,6 +147,7 @@ function handleAnswer(playerId, answer) {
     checkRoundCompletion();
 }
 
+//============================= Check Round Completion =============================
 function checkRoundCompletion() {
     const gameState = gameStateManager.getGameState();
     if (!gameState || gameState.phase !== 'playing') return;
@@ -153,10 +158,11 @@ function checkRoundCompletion() {
         console.log("All players answered. Evaluating round.");
         gameState.phase = 'round_end';
         broadcastGameState();
-        evaluateRound(); // Async evaluation starts
+        evaluateRound();
     }
 }
 
+//============================= Evaluate Round =============================
 async function evaluateRound() {
     const gameState = gameStateManager.getGameState();
     if (!gameState || !gameState.currentQuestion) { console.error("EvaluateRound missing question/state."); checkEndGameOrNextRound(); return; }
@@ -192,7 +198,7 @@ async function evaluateRound() {
         Object.keys(players).forEach(id => roundScores[id] = 0);
     }
 
-    // --- Process Scores & Summary ---
+    //======================== --- Process Scores & Summary ---
     let roundSummaryLines = llmCommentary ? [llmCommentary, "---"] : [];
     roundSummaryLines.push(evaluationMessage);
 
@@ -203,7 +209,7 @@ async function evaluateRound() {
         const points = roundScores[playerId] ?? 0;
         player.score += points;
         player.lastScore = points;
-        dataManager.getPlayerData(playerId, player.name, player.avatarOptions); // Ensure player exists in DB cache
+        dataManager.getPlayerData(playerId, player.name, player.avatarOptions);
         dataManager.updatePlayerStatInMemory(playerId, 'totalScore', points);
         dataManager.updatePlayerStatInMemory(playerId, 'answerStats', points);
         roundSummaryLines.push(`${player.name}: "${player.answer || '-'}" => ${points} pt (Всего: ${player.score})`);
@@ -222,13 +228,14 @@ async function evaluateRound() {
     checkEndGameOrNextRound();
 }
 
+//============================= Check End Game or Next Round =============================
 function checkEndGameOrNextRound() {
     const gameState = gameStateManager.getGameState();
     if (!gameState || gameState.phase === 'game_over') { return; }
     let gameOver = false; let winner = null; let reason = "";
     const playersArray = Object.values(gameState.players);
 
-    // 1. Score Win
+    //======================== --- Check Score Win ---
     if (gameState.settings.gameMode === 'score' && playersArray.length > 0) {
         const playersReachedScore = playersArray.filter(p => p.score >= gameState.settings.targetScore);
         if (playersReachedScore.length > 0) {
@@ -239,7 +246,7 @@ function checkEndGameOrNextRound() {
             else { winner = null; reason = `Ничья! ${potentialWinners.map(p => p.name).join(' и ')} достигли ${highestScore} очков!`; }
         }
     }
-    // 2. Out of Questions
+    //======================== --- Check Out of Questions ---
     if (!gameOver && gameState.phase !== 'lobby') {
         gameStateManager.updateFilteredQuestions(); const questions = dataManager.getQuestions(); const history = gameState.questionHistory || [];
         const currentThemes = gameState.settings.selectedThemes || []; const currentTypes = gameState.settings.selectedAnswerTypes || [];
@@ -260,11 +267,11 @@ function checkEndGameOrNextRound() {
             }
         }
     }
-    // --- Transition ---
+    //======================== --- Transition ---
     if (gameOver) { endGame(reason, winner); }
     else {
         console.log(`Broadcasting round results. Next round in ~6 seconds.`);
-        broadcastGameState(); // Show round results first
+        broadcastGameState();
         setTimeout(() => {
             const currentGameState = gameStateManager.getGameState();
             if (currentGameState && currentGameState.phase === 'round_end') { nextRound(); }
@@ -273,6 +280,7 @@ function checkEndGameOrNextRound() {
     }
 }
 
+//============================= End Game =============================
 function endGame(reason, winner = null) {
     const gameState = gameStateManager.getGameState();
     if (!gameState || gameState.phase === 'game_over') { return; }
@@ -285,17 +293,18 @@ function endGame(reason, winner = null) {
         reason: reason, scores: finalScores
     };
     if (winner) { dataManager.updatePlayerStatInMemory(winner.id, 'wins', 1); }
-    dataManager.savePlayers(); // Save all stats
+    dataManager.savePlayers();
     console.log("Player stats saved on game end.");
     broadcastGameState();
 }
 
+//============================= Request Reset Handler =============================
 function requestResetHandler(playerId) {
     const gameState = gameStateManager.getGameState();
     if (!gameState) return;
     if (playerId === gameState.hostId || gameState.phase === 'game_over') {
         console.log(`Reset requested by ${playerId}. Current phase: ${gameState.phase}`);
-        gameStateManager.resetGame(); // Resets state, might re-add host
+        gameStateManager.resetGame();
         broadcastGameState();
     } else { io?.to(playerId)?.emit('gameError', 'Только ведущий может сбросить лобби (или дождитесь конца игры).'); }
 }
@@ -306,6 +315,6 @@ module.exports = {
     startGame,
     handleAnswer,
     requestResetHandler,
-    broadcastGameState, // Export for shared use
-    endGame           // Export for shared use
+    broadcastGameState,
+    endGame
 };

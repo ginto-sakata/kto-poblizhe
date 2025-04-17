@@ -1,40 +1,61 @@
 // scoringService.js
 
-/**
- * Parses a string potentially representing a number, including magnitudes and percentages.
- * Returns a number, Infinity, or null if parsing fails.
- * Handles simple BC year notations.
- *
- * @param {string | number | null | undefined} valueStr The input string to parse.
- * @returns {number | null} The parsed number, Infinity, or null.
- */
+//============================= parseValue Function =============================
 function parseValue(valueStr) {
     if (valueStr === null || valueStr === undefined) return null;
     let originalStr = String(valueStr).trim().toLowerCase();
     if (!originalStr) return null;
 
+    //======================== --- Reject ~ Prefixed Strings ---
+    if (originalStr.startsWith('~')) {
+        return null; // Treat approximate values as non-numerical for this parser
+    }
+
     if (['бесконечно', 'бесконечность', 'бесконечное число', 'infinity'].includes(originalStr)) {
         return Infinity;
     }
 
-    const bcMatch = originalStr.match(/^(\d+)\s*(?:до н\.э\.|b\.?c\.?e?\.?|bc|н\.э\.)$/);
+    const bcMatch = originalStr.match(/^(\d+)\s*(?:до н\.э\.|до нэ|до н\/э|до н\\э|b\.?c\.?e?\.?|bc|н\.э\.)$/i); // Added variations and case-insensitivity
     if (bcMatch) {
         const year = parseInt(bcMatch[1], 10);
         return !isNaN(year) ? -year : null;
     }
 
     let multiplier = 1;
-    let strToParse = originalStr;
+    let numPart = originalStr;
 
-    if (strToParse.endsWith('квинтиллионов')) { multiplier = 1e18; strToParse = strToParse.replace(/квинтиллионов$/, '').trim(); }
-    else if (strToParse.endsWith('млрд') || strToParse.endsWith('b') || strToParse.endsWith('миллиардов')) { multiplier = 1e9; strToParse = strToParse.replace(/млрд|b|миллиардов$/, '').trim(); }
-    else if (strToParse.endsWith('млн') || strToParse.endsWith('m') || strToParse.endsWith('миллионов')) { multiplier = 1e6; strToParse = strToParse.replace(/млн|m|миллионов$/, '').trim(); }
-    else if (strToParse.endsWith('тыс') || strToParse.endsWith('тысяч') || strToParse.endsWith('k')) { multiplier = 1e3; strToParse = strToParse.replace(/тыс|тысяч|k$/, '').trim(); }
-    else if (strToParse.endsWith('%')) { strToParse = strToParse.replace(/%$/, '').trim(); }
+    //======================== --- Regex for Number and Suffix ---
+    // Regex to capture number and optional suffix (abbreviations or full words) with space
+    // Reordered suffix alternatives: ккк, billions, kk, millions, k, thousands
+    const match = originalStr.match(/^(-?\s*\d+[\s,.]*\d*)\s*(ккк|миллиардов|миллиарда|миллиард|млрд|б|b|кк|миллионов|миллион|млн|м|m|тысяч|тысяча|тыс|к|k)?$/i);
 
-    if (!strToParse) return null;
+    if (match) {
+        numPart = match[1];
+        const suffix = match[2]?.toLowerCase();
 
-    const numStr = strToParse.replace(/,/g, '.').replace(/\s/g, '');
+        if (suffix) {
+            //======================== --- Check Suffix for Multiplier ---
+            if (suffix === 'ккк' || suffix === 'б' || suffix === 'b' || suffix === 'млрд' || suffix === 'миллиард' || suffix === 'миллиарда' || suffix === 'миллиардов') {
+                multiplier = 1e9;
+            } else if (suffix === 'кк' || suffix === 'м' || suffix === 'm' || suffix === 'млн' || suffix === 'миллион' || suffix === 'миллионов') {
+                multiplier = 1e6;
+            } else if (suffix === 'к' || suffix === 'k' || suffix === 'тыс' || suffix === 'тысяч' || suffix === 'тысяча') {
+                multiplier = 1e3;
+            }
+        }
+    } else {
+        //======================== --- Handle Percentage if No Magnitude ---
+         if (originalStr.endsWith('%')) {
+             numPart = originalStr.replace(/%$/, '').trim();
+         } else {
+             numPart = originalStr;
+         }
+    }
+
+    //======================== --- Clean and Parse Number Part ---
+    const numStr = numPart.replace(/,/g, '.').replace(/\s/g, '');
+
+    if (!numStr) return null;
 
     if (/^(-?\d+(?:\.\d+)?)[eE][+-]?\d+$/.test(numStr)) {
         const sciValue = parseFloat(numStr);
@@ -45,20 +66,10 @@ function parseValue(valueStr) {
         return !isNaN(numValue) ? numValue * multiplier : null;
     }
 
-    // console.warn(`Could not parse player value: "${originalStr}"`); // Optional logging
-    return null; // Failed to parse
+    return null;
 }
 
-
-/**
- * Evaluates player answers numerically against a potentially complex correct answer string.
- * Handles exact numbers, numerical ranges, and infinity. Falls back for other types.
- * Awards 3 points for exact match or within range, 2 for closest otherwise, 0 for others.
- *
- * @param {string} correctAnswerRaw The raw correct answer string from the question data.
- * @param {object} players Object with player IDs as keys and player objects { id, name, answer } as values.
- * @returns {object} Object with player IDs as keys and scores (0, 2, or 3) as values.
- */
+//============================= evaluateNumerically Function =============================
 function evaluateNumerically(correctAnswerRaw, players) {
     const scores = {};
     const playerEntries = (players && typeof players === 'object') ? Object.entries(players) : [];
@@ -76,7 +87,7 @@ function evaluateNumerically(correctAnswerRaw, players) {
     let rangeLower = null;
     let rangeUpper = null;
 
-    // Determine evaluation type
+    //======================== --- Determine Correct Answer Type ---
     if (['бесконечно', 'бесконечность', 'бесконечное число', 'infinity'].includes(correctAnswerStr)) {
         evaluationType = 'infinity';
         correctValue = Infinity;
@@ -88,7 +99,7 @@ function evaluateNumerically(correctAnswerRaw, players) {
             if (!isNaN(rangeLower) && !isNaN(rangeUpper)) {
                 evaluationType = 'range';
                 if (rangeLower > rangeUpper) [rangeLower, rangeUpper] = [rangeUpper, rangeLower];
-                correctValue = (rangeLower + rangeUpper) / 2; // Midpoint for diff calculation
+                correctValue = (rangeLower + rangeUpper) / 2;
             } else {
                 evaluationType = 'unknown';
                 console.warn(`Numerical Eval: Malformed range: "${correctAnswerRaw}"`);
@@ -107,14 +118,14 @@ function evaluateNumerically(correctAnswerRaw, players) {
         }
     }
 
-    // Handle Unknown/Fallback
+    //======================== --- Handle Unknown/Fallback ---
     if (evaluationType === 'unknown') {
         console.warn(`Numerical Eval cannot handle: "${correctAnswerRaw}". Scoring 0.`);
         playerEntries.forEach(([id]) => scores[id] = 0);
         return scores;
     }
 
-    // Evaluate Player Answers
+    //======================== --- Evaluate Player Answers ---
     const playerResults = playerEntries.map(([id, player]) => {
         if (!player || typeof player !== 'object') { return { id, diff: Infinity, isExact: false }; }
         const playerValue = parseValue(player.answer);
@@ -128,11 +139,17 @@ function evaluateNumerically(correctAnswerRaw, players) {
         return { id, diff, isExact };
     });
 
-    // Assign Scores
+    //======================== --- Assign Scores ---
+    const anyExact = playerResults.some(pa => pa.isExact);
+
     playerResults.forEach(pa => {
-        if (pa.isExact) { scores[pa.id] = 3; }
-        else if (evaluationType !== 'infinity' && pa.diff === minDiff && minDiff !== Infinity) { scores[pa.id] = 2; }
-        else { scores[pa.id] = 0; }
+        if (pa.isExact) {
+            scores[pa.id] = 3;
+        } else if (!anyExact && evaluationType !== 'infinity' && pa.diff === minDiff && minDiff !== Infinity) {
+            scores[pa.id] = 2;
+        } else {
+            scores[pa.id] = 0;
+        }
     });
 
     return scores;

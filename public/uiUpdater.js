@@ -11,9 +11,18 @@ function sanitizeHTML(str) {
     return temp.innerHTML;
 }
 
+//=================================================================================
+//                             --- Show View ---
+//=================================================================================
+
 function showView(viewId) {
     document.querySelectorAll('.view').forEach(view => {
-        view.style.display = view.id === viewId ? 'block' : 'none';
+        // Special handling for join-view to use flex
+        if (view.id === 'join-view') {
+            view.style.display = view.id === viewId ? 'flex' : 'none';
+        } else {
+            view.style.display = view.id === viewId ? 'block' : 'none';
+        }
     });
     // Clear errors/messages when changing views
     const joinError = document.getElementById('join-error');
@@ -49,6 +58,7 @@ function renderPlayerListItem(player, isHostPlayer) {
 //                         --- Panel Update Functions ---
 //=================================================================================
 
+// --- Update Lobby Status Panel ---
 function updateLobbyStatusPanel(state) {
      const joinCurrentPlayers = document.getElementById('current-players');
      const joinMaxPlayers = document.getElementById('max-players');
@@ -68,6 +78,9 @@ function updateLobbyStatusPanel(state) {
      }
 }
 
+//=================================================================================
+
+// --- Update Opponent Info Panel ---
 function updateOpponentInfoPanel(opponent) {
   const opponentInfoPanel = document.getElementById('opponent-info-panel');
   const opponentInfoAvatar = document.getElementById('opponent-info-avatar');
@@ -100,6 +113,7 @@ function updateOpponentInfoPanel(opponent) {
 //                          --- View Update Functions ---
 //=================================================================================
 
+// --- Update Lobby View ---
 function updateLobbyView(state, isHost) {
     const lobbyCurrentPlayersSpan = document.getElementById('lobby-current-players');
     const lobbyMaxPlayersSpan = document.getElementById('lobby-max-players');
@@ -150,6 +164,9 @@ function updateLobbyView(state, isHost) {
     if (settingsButton) settingsButton.style.display = isHost ? 'inline-block' : 'none';
 }
 
+//=================================================================================
+
+// --- Update Settings View ---
 function updateSettingsView(state, isHost) {
     const settingsView = document.getElementById('settings-view');
     const settingsMaxPlayersSelect = document.getElementById('settings-max-players');
@@ -239,6 +256,9 @@ function updateSettingsView(state, isHost) {
     }
 }
 
+//=================================================================================
+
+// --- Update Gameplay View ---
 function updateGameplayView(state, myPlayerId, lastRoundResultsMessage) {
     const playerScoresDiv = document.getElementById('player-scores');
     const previousRoundResultsDisplay = document.getElementById('previous-round-results-display');
@@ -309,18 +329,23 @@ function updateGameplayView(state, myPlayerId, lastRoundResultsMessage) {
     if(submittedAnswersDiv) submittedAnswersDiv.style.display = 'block';
 }
 
+//=================================================================================
+
+// --- Update Round End View ---
 function updateRoundEndView(state) {
     const roundResultsPre = document.querySelector('#round-results pre');
     if (roundResultsPre) {
         if (state.roundResults) {
             roundResultsPre.textContent = sanitizeHTML(state.roundResults.message);
-            // lastRoundResultsMessage is managed in the main client.js now
         } else {
             roundResultsPre.textContent = 'Calculating results...';
         }
     }
 }
 
+//=================================================================================
+
+// --- Update Game Over View ---
 function updateGameOverView(state, isHost) {
     const gameOverReasonP = document.getElementById('game-over-reason');
     const finalScoresList = document.getElementById('final-scores-list');
